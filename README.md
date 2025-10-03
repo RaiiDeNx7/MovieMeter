@@ -1,7 +1,7 @@
 # Group Members:
 - Hunter Smith
 - Guillermo Flores
-- Darien 
+- Darien Walker
 
 # Dependencies
 - python
