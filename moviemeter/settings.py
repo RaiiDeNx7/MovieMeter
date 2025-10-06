@@ -40,6 +40,13 @@ INSTALLED_APPS = [
     'main',
 ]
 
+STATIC_URL = '/static/'
+
+import os
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'main', 'static'),
+]
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
