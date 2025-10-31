@@ -19,6 +19,8 @@ def index(request):
 # -------------------------
 def signup_view(request):
     if request.method == 'POST':
+        first_name = request.POST['first_name']
+        last_name = request.POST['last_name']
         email = request.POST['email']
         password = request.POST['password']
         confirm = request.POST['confirm']
@@ -32,22 +34,26 @@ def signup_view(request):
             response = supabase.auth.sign_up({"email": email, "password": password})
 
             if response.user:
-                # Insert user into your own table
+                # Insert user into your custom 'users' table
                 supabase.table('users').insert({
-                    'id': response.user.id,  # optional: use auth ID
+                    'id': response.user.id,  # use Auth user ID
+                    'first_name': first_name,
+                    'last_name': last_name,
                     'email': email
                 }).execute()
 
                 messages.success(request, "Account created! Please check your email to confirm.")
+                return redirect('login')
             else:
                 messages.info(request, "Signup successful! Check your email for confirmation link.")
-
-            return redirect('login')
+                return redirect('login')
 
         except Exception as e:
             messages.error(request, f"Signup failed: {str(e)}")
 
     return render(request, 'main/signup.html')
+
+
 
 
 
