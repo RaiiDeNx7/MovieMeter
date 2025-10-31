@@ -1,0 +1,15 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Profile</title>
+  <link rel="stylesheet" href="{% static 'main/css/style.css' %}">
+</head>
+<body>
+<div class="card">
+  <h2>Welcome!</h2>
+  <p style="color:black">User ID: {{ user_id }}</p>
+  <a href="{% url 'logout' %}">Logout</a> | <a href="{% url 'index' %}">Back to Movie Search</a>
+</div>
+</body>
+</html>

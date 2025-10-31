@@ -46,17 +46,40 @@
       text-align: center;
       background: #fff;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      color: black
+      color: black;
     }
 
     .movie img {
       width: 100%;
       border-radius: 8px;
     }
+
+    /* Top navigation bar */
+    #topbar {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    #topbar a {
+      margin: 0 10px;
+      text-decoration: none;
+      color: #007BFF;
+      font-weight: bold;
+    }
   </style>
 </head>
 
 <body>
+  <div id="topbar">
+    {% if request.session.user_id %}
+      <a href="{% url 'profile' %}">Profile</a>
+      <a href="{% url 'logout' %}">Logout</a>
+    {% else %}
+      <a href="{% url 'login' %}">Login</a>
+      <a href="{% url 'signup' %}">Sign Up</a>
+    {% endif %}
+  </div>
+
   <h1>🎥 Movie Search</h1>
 
   <div style="text-align:center; margin-top:10px;">
@@ -66,7 +89,6 @@
 
   <div id="results"></div>
 
-  <!-- Correct static path for Django -->
   <script src="{% static 'main/js/script.js' %}"></script>
 </body>
 </html>
