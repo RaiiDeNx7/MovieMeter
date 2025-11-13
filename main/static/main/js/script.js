@@ -1,6 +1,6 @@
 console.log("✅ script.js loaded");
 
-const apiKey = "f8b7534aef60f21d1301d08c91637752"; // Replace with your actual TMDB key
+const apiKey = "f8b7534aef60f21d1301d08c91637752"; // TMDB key
 const searchBtn = document.getElementById("searchBtn");
 const searchInput = document.getElementById("searchInput");
 const resultsDiv = document.getElementById("results");
@@ -8,6 +8,7 @@ const resultsDiv = document.getElementById("results");
 if (!searchBtn || !searchInput || !resultsDiv) {
   console.error("❌ DOM elements missing:", { searchBtn, searchInput, resultsDiv });
 } else {
+  // Search button
   searchBtn.addEventListener("click", () => {
     const query = searchInput.value.trim();
     if (query) {
@@ -16,8 +17,42 @@ if (!searchBtn || !searchInput || !resultsDiv) {
       resultsDiv.innerHTML = "<p>Please enter a movie name.</p>";
     }
   });
+
+  // Load default movies when the page first loads
+  window.addEventListener("DOMContentLoaded", loadDefaultMovies);
 }
 
+/* -----------------------------
+   Load popular or recent movies
+------------------------------ */
+async function loadDefaultMovies() {
+  const url = `https://api.themoviedb.org/3/movie/now_playing?api_key=${apiKey}&language=en-US&page=1`;
+  // You can also use:
+  // popular: https://api.themoviedb.org/3/movie/popular?api_key=${apiKey}&language=en-US&page=1
+  // top rated: https://api.themoviedb.org/3/movie/top_rated?api_key=${apiKey}&language=en-US&page=1
+
+  resultsDiv.innerHTML = "<p>Loading latest movies...</p>";
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+
+    if (!data.results || data.results.length === 0) {
+      resultsDiv.innerHTML = "<p>No movies found.</p>";
+      return;
+    }
+
+    displayResults(data.results);
+  } catch (error) {
+    console.error("Error fetching default movies:", error);
+    resultsDiv.innerHTML = `<p style="color:red;">Error loading default movies: ${error.message}</p>`;
+  }
+}
+
+/* -----------------------------
+   Search movies by user query
+------------------------------ */
 async function searchMovies(query) {
   const url = `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}`;
   console.log("🎬 Searching TMDB for:", query);
@@ -40,6 +75,9 @@ async function searchMovies(query) {
   }
 }
 
+/* -----------------------------
+   Render movie results
+------------------------------ */
 function displayResults(movies) {
   resultsDiv.innerHTML = "";
   movies.forEach((movie) => {
