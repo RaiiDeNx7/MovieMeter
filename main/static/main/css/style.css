@@ -1,39 +1,121 @@
+/* 🌸 Base Layout */
 body {
-    font-family: Arial, sans-serif;
-    background-color: peachpuff;
-    color: white;
-    text-align: center;
-    padding: 50px;
-}
-
-h1, h2, p {
-    color: black;
-}
-
-.card {
-  max-width: 400px;
-  margin: 50px auto;
+  font-family: Arial, sans-serif;
+  background-color: grey;
+  color: black;
+  text-align: center;
+  margin: 0;
   padding: 20px;
+  box-sizing: border-box;
+}
+
+h1, h2, h3, p {
+  color: black;
+  margin: 0.5em 0;
+}
+
+/* 🪪 Card (login/profile containers) */
+.card {
+  max-width: 500px;
+  margin: 40px auto;
+  padding: 25px;
   background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  border-radius: 12px;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.1);
   text-align: center;
 }
+
 .card input {
-  width: 90%;
-  padding: 10px;
+  width: 100%;
+  padding: 12px;
   margin: 10px 0;
-  border-radius: 5px;
+  border-radius: 6px;
   border: 1px solid #ccc;
+  font-size: 1em;
+  box-sizing: border-box;
 }
+
 .card button {
   padding: 10px 20px;
-  border-radius: 5px;
+  border-radius: 6px;
   border: none;
   background-color: #007BFF;
   color: white;
   cursor: pointer;
+  transition: background-color 0.2s ease;
 }
+
 .card button:hover {
   background-color: #0056b3;
+}
+
+/* 🎬 Movie Grid Container */
+#movies, #likedMovies {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+  justify-items: center;
+  margin-top: 30px;
+  margin-left: 50px
+  padding: 0 10px;
+}
+
+/* 🎞️ Movie Cards */
+.movie, .liked-movie {
+  background: white;
+  color: black;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  padding: 15px;
+  width: 100%;
+  max-width: 220px;
+  text-align: center;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.movie:hover, .liked-movie:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.movie img, .liked-movie img {
+  width: 100%;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+/* ❤️ Like Button */
+.like-btn {
+  background: #eee;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  margin-top: 8px;
+  font-size: 0.9em;
+
+}
+
+.like-btn:hover {
+  background: #ddd;
+}
+
+.like-btn.liked {
+  background: #ffb3b3;
+}
+
+/* 🧩 Responsive Tweaks */
+@media (max-width: 600px) {
+  body {
+    padding: 10px;
+  }
+  .card {
+    width: 90%;
+    margin: 20px auto;
+    padding: 15px;
+  }
+  #movies, #likedMovies {
+    gap: 15px;
+  }
 }

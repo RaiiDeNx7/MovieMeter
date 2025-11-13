@@ -2,14 +2,22 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
   <title>Profile</title>
-  <link rel="stylesheet" href="{% static 'main/css/style.css' %}">
+  <link rel="stylesheet" href="{% static 'main/css/style.css' %}?v=2">
 </head>
 <body>
-<div class="card">
-  <h2>Welcome!</h2>
-  <p style="color:black">User ID: {{ user_id }}</p>
-  <a href="{% url 'logout' %}">Logout</a> | <a href="{% url 'index' %}">Back to Movie Search</a>
-</div>
+  <div class="card">
+    <h2>Welcome!</h2>
+    <p>User ID: {{ user_id }}</p>
+    <a href="{% url 'logout' %}">Logout</a> | <a href="{% url 'index' %}">Back to Movie Search</a>
+  </div>
+
+  <div class="card">
+    <h3>Your Liked Movies ❤️</h3>
+    <div id="likedMovies"></div>
+  </div>
+
+  <script type="module" src="{% static 'main/js/profile.js' %}?v=2"></script>
 </body>
 </html>
