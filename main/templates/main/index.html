@@ -71,10 +71,10 @@
 </head>
 
 <body>
-  <div id="topbar">
+<div id="topbar">
   {% if request.session.user_id %}
     <a href="{% url 'profile' %}">Profile</a>
-    <a href="{% url 'recommendations' %}">Recommendations</a>   
+    <a href="{% url 'recommendations' %}">Recommendations</a>
     <a href="{% url 'logout' %}">Logout</a>
   {% else %}
     <a href="{% url 'login' %}">Login</a>
@@ -82,17 +82,15 @@
   {% endif %}
 </div>
 
+<h1>🎥 Movie Search</h1>
 
-  <h1>🎥 Movie Search</h1>
+<div style="text-align:center; margin-top:10px;">
+  <input type="text" id="searchInput" placeholder="Type a movie title..." />
+  <button id="searchBtn">Search</button>
+</div>
 
-  <div style="text-align:center; margin-top:10px;">
-    <input type="text" id="searchInput" placeholder="Type a movie title..." />
-    <button id="searchBtn">Search</button>
-  </div>
+<!-- FIXED: Pass user ID to JS -->
+<div id="results" data-user-id="{{ request.session.user_id }}"></div>
 
-  <div id="results"></div>
-
-  <script src="{% static 'main/js/script.js' %}"></script>
 </body>
 </html>
-

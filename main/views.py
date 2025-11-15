@@ -95,22 +95,24 @@ def logout_view(request):
     return redirect('login')
 
 # -------------------------
-# Recommendations
+# Recommendations API
 # -------------------------
 from django.http import JsonResponse
+from django.shortcuts import redirect, render
 import os
 import requests
 from supabase import create_client
 
-# Initialize Supabase client (only once)
+# Initialize Supabase client
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-TMDB_KEY = os.getenv("TMDB_KEY")  # put this in your .env file
+TMDB_KEY = os.getenv("TMDB_KEY")  # put this in your .env
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 def recommendations_view(request):
+    """Render recommendations page"""
     if 'user_id' not in request.session:
         return redirect('login')
     return render(request, 'main/recommendations.html', {'user_id': request.session['user_id']})
@@ -121,27 +123,54 @@ def get_recommendations(request):
     if not user_id:
         return JsonResponse({"error": "Missing user_id"}, status=400)
 
-    # 1️⃣ Fetch liked movie IDs from Supabase
-    liked = supabase.table("liked_movies").select("movie_id").eq("user_id", user_id).execute().data
+    # -------------------------
+    # DEBUG: check Supabase query
+    # -------------------------
+    try:
+        response = supabase.table("liked_movies").select("*").eq("user_id", user_id).execute()
+        liked = response.data or []
+        print("Supabase liked movies response:", liked)  # <-- debug log
+    except Exception as e:
+        print("Error fetching liked movies from Supabase:", e)
+        return JsonResponse({"results": []})
+    # -------------------------
+
     liked_ids = [m["movie_id"] for m in liked]
+    print("Liked IDs:", liked_ids)  # <-- debug log
 
     if not liked_ids:
         return JsonResponse({"results": []})
 
-    # 2️⃣ Fetch similar movies from TMDB for the first few liked ones
+    # 2️⃣ Fetch similar movies from TMDB (first 5 liked movies)
     similar_movies = []
     for movie_id in liked_ids[:5]:
         try:
             res = requests.get(
-                f"https://api.themoviedb.org/3/movie/{movie_id}/similar?api_key={TMDB_KEY}"
+                f"https://api.themoviedb.org/3/movie/{movie_id}/similar",
+                params={"api_key": TMDB_KEY, "language": "en-US", "page": 1},
+                timeout=5
             )
             if res.status_code == 200:
                 data = res.json().get("results", [])
                 similar_movies.extend(data)
+            else:
+                print(f"TMDB API error for movie {movie_id}: {res.status_code}")
         except Exception as e:
-            print(f"Error fetching similar for {movie_id}: {e}")
+            print(f"Error fetching TMDB similar movies for {movie_id}: {e}")
 
     # 3️⃣ Remove duplicates and already liked movies
     unique_movies = {m["id"]: m for m in similar_movies if m["id"] not in liked_ids}
 
-    return JsonResponse({"results": list(unique_movies.values())})
+    # 4️⃣ Return only necessary fields to JS
+    results = []
+    for m in unique_movies.values():
+        results.append({
+            "id": m.get("id"),
+            "title": m.get("title"),
+            "poster_path": m.get("poster_path"),
+            "release_date": m.get("release_date"),
+            "vote_average": m.get("vote_average")
+        })
+
+    return JsonResponse({"results": results})
+

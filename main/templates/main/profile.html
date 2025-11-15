@@ -15,7 +15,8 @@
 
   <div class="card">
     <h3>Your Liked Movies ❤️</h3>
-    <div id="likedMovies"></div>
+    <!-- Pass user_id as a data attribute -->
+    <div id="likedMovies" data-user-id="{{ user_id }}"></div>
   </div>
 
   <script type="module" src="{% static 'main/js/profile.js' %}?v=2"></script>

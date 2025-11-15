@@ -1,0 +1,20 @@
+{
+  "name": "ai-movie-project",
+  "version": "1.0.0",
+  "description": "- Hunter Smith\r - Guillermo Flores\r - Darien Walker",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RaiiDeNx7/MovieMeter.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/RaiiDeNx7/MovieMeter/issues"
+  },
+  "homepage": "https://github.com/RaiiDeNx7/MovieMeter#readme"
+}

@@ -6,7 +6,6 @@
   <title>Recommendations</title>
   <link rel="stylesheet" href="{% static 'main/css/style.css' %}">
   <style>
-    /* Optional: spacing and responsiveness for recommendations */
     #recommendations {
       display: flex;
       flex-wrap: wrap;
@@ -14,10 +13,17 @@
       justify-content: center;
       margin-top: 20px;
     }
+    .movie {
+      width: 200px;
+      text-align: center;
+    }
+    .movie img {
+      width: 100%;
+      height: auto;
+    }
   </style>
 </head>
 <body>
-
   <div id="topbar">
     {% if request.session.user_id %}
       <a href="{% url 'profile' %}">Profile</a>
@@ -31,11 +37,10 @@
 
   <div class="card">
     <h2>Recommended for You 🎬</h2>
-    <div id="recommendations" data-user-id="{{ user_id }}"></div>
+    <div id="recommendations" data-user-id="{{ request.session.user_id }}"></div>
     <a href="{% url 'index' %}">← Back to Movie Search</a>
   </div>
 
-  <!-- Load the JS module -->
   <script type="module" src="{% static 'main/js/recommendations.js' %}"></script>
 </body>
 </html>

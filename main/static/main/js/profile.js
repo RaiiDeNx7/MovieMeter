@@ -2,26 +2,18 @@ import { supabase } from "./supabase.js";
 
 console.log("✅ profile.js loaded");
 
-const userId = "{{ request.session.user_id }}";
+// Get user_id from data attribute
 const likedMoviesDiv = document.getElementById("likedMovies");
+const userId = likedMoviesDiv.dataset.userId;
 
-/* -----------------------------
-   Load liked movies on page load
------------------------------- */
-window.addEventListener("DOMContentLoaded", async () => {
-  if (!userId || userId === "None") {
-    likedMoviesDiv.innerHTML = "<p>Please log in to see your liked movies.</p>";
-    return;
-  }
+if (!userId || userId === "None") {
+  likedMoviesDiv.innerHTML = "<p>Please log in to see your liked movies.</p>";
+} else {
+  loadLikedMovies();
+}
 
-  await loadLikedMovies();
-});
-
-/* -----------------------------
-   Load all liked movies from Supabase
------------------------------- */
 async function loadLikedMovies() {
-  likedMoviesDiv.innerHTML = "<p>Loading your liked movies...</p>";
+  likedMoviesDiv.innerHTML = "<p>Loading liked movies...</p>";
 
   try {
     const { data, error } = await supabase
@@ -40,13 +32,10 @@ async function loadLikedMovies() {
     data.forEach((movie) => displayMovie(movie));
   } catch (err) {
     console.error("Error loading liked movies:", err);
-    likedMoviesDiv.innerHTML = "<p style='color:red;'>Error loading liked movies.</p>";
+    likedMoviesDiv.innerHTML = "<p style='color:red;'>Failed to load liked movies.</p>";
   }
 }
 
-/* -----------------------------
-   Display liked movie cards
------------------------------- */
 function displayMovie(movie) {
   const movieDiv = document.createElement("div");
   movieDiv.classList.add("liked-movie");
@@ -72,15 +61,7 @@ function displayMovie(movie) {
   });
 }
 
-/* -----------------------------
-   Unlike movie (remove from Supabase and DOM)
------------------------------- */
 async function unlikeMovie(movieId, movieDiv) {
-  if (!userId || userId === "None") {
-    alert("You must be logged in to unlike movies!");
-    return;
-  }
-
   try {
     const { error } = await supabase
       .from("liked_movies")

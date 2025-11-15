@@ -6,12 +6,14 @@ const apiKey = "f8b7534aef60f21d1301d08c91637752";
 const searchBtn = document.getElementById("searchBtn");
 const searchInput = document.getElementById("searchInput");
 const resultsDiv = document.getElementById("results");
-const userId = "{{ request.session.user_id }}";
+
+// User ID passed from Django
+const userId = resultsDiv.dataset.userId;
 
 let likedMoviesSet = new Set();
 
 /* -----------------------------
-   Load liked movies first
+   Initial Page Load
 ------------------------------ */
 window.addEventListener("DOMContentLoaded", async () => {
   if (userId && userId !== "None") {
@@ -56,7 +58,7 @@ async function loadLikedMovies() {
 }
 
 /* -----------------------------
-   Load default movies (most recent)
+   Load default movies
 ------------------------------ */
 async function loadDefaultMovies() {
   const url = `https://api.themoviedb.org/3/movie/now_playing?api_key=${apiKey}&language=en-US&page=1`;
@@ -90,7 +92,7 @@ async function searchMovies(query) {
 }
 
 /* -----------------------------
-   Display movies with like toggle
+   Display movies
 ------------------------------ */
 function displayResults(movies) {
   resultsDiv.innerHTML = "";
@@ -139,7 +141,7 @@ function displayResults(movies) {
 }
 
 /* -----------------------------
-   Toggle Like/Unlike
+   Toggle Like / Unlike
 ------------------------------ */
 async function toggleLike(movie, button) {
   if (!userId || userId === "None") {
@@ -152,7 +154,6 @@ async function toggleLike(movie, button) {
 
   try {
     if (isLiked) {
-      // Unlike
       const { error } = await supabase
         .from("liked_movies")
         .delete()
@@ -166,7 +167,6 @@ async function toggleLike(movie, button) {
       button.classList.remove("liked");
       console.log(`💔 Unliked: ${movie.title}`);
     } else {
-      // Like
       const { error } = await supabase
         .from("liked_movies")
         .insert([
