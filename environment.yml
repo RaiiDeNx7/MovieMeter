@@ -1,0 +1,19 @@
+name: movie-ai
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - numpy
+  - pandas
+  - scikit-learn
+  - jupyter
+  - pip:
+      - scikit-surprise==1.1.4
+      - supabase==2.0.0
+      - python-dotenv
+
+# conda env remove -n movie-ai --yes    # optional if recreating
+# conda env create -f environment.yml
+# conda activate movie-ai

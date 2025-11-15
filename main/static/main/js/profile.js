@@ -2,6 +2,9 @@ import { supabase } from "./supabase.js";
 
 console.log("✅ profile.js loaded");
 
+// TMDb API key
+const TMDB_KEY = "f8b7534aef60f21d1301d08c91637752";
+
 // Get user_id from data attribute
 const likedMoviesDiv = document.getElementById("likedMovies");
 const userId = likedMoviesDiv.dataset.userId;
@@ -29,14 +32,32 @@ async function loadLikedMovies() {
     }
 
     likedMoviesDiv.innerHTML = "";
-    data.forEach((movie) => displayMovie(movie));
+
+    // Fetch ratings for each liked movie
+    for (const movie of data) {
+      await displayMovie(movie);
+    }
   } catch (err) {
     console.error("Error loading liked movies:", err);
     likedMoviesDiv.innerHTML = "<p style='color:red;'>Failed to load liked movies.</p>";
   }
 }
 
-function displayMovie(movie) {
+async function displayMovie(movie) {
+  let rating = "N/A";
+
+  try {
+    const res = await fetch(
+      `https://api.themoviedb.org/3/movie/${movie.movie_id}?api_key=${TMDB_KEY}`
+    );
+    const tmdbData = await res.json();
+    if (tmdbData.vote_average) {
+      rating = tmdbData.vote_average.toFixed(1);
+    }
+  } catch (err) {
+    console.warn("Could not fetch TMDb rating for movie", movie.movie_id, err);
+  }
+
   const movieDiv = document.createElement("div");
   movieDiv.classList.add("liked-movie");
   movieDiv.dataset.id = movie.movie_id;
@@ -48,6 +69,7 @@ function displayMovie(movie) {
   movieDiv.innerHTML = `
     <img src="${poster}" alt="${movie.title}">
     <h3>${movie.title}</h3>
+    <p>⭐ Rating: ${rating}</p>
     <p>Release: ${movie.release_date || "N/A"}</p>
     <button class="like-btn liked" data-id="${movie.movie_id}">💔 Unlike</button>
   `;

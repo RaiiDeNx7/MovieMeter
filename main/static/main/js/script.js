@@ -116,11 +116,13 @@ function displayResults(movies) {
       <img src="${poster}" alt="${movie.title}">
       <h3>${movie.title}</h3>
       <p>Release: ${movie.release_date || "N/A"}</p>
+      <p>⭐ ${movie.vote_average ? movie.vote_average.toFixed(1) : "N/A"}</p>
       <button class="like-btn ${isLiked ? "liked" : ""}"
         data-id="${movieId}"
         data-title="${movie.title}"
         data-poster="${poster}"
-        data-date="${movie.release_date}">
+        data-date="${movie.release_date}"
+        data-rating="${movie.vote_average || 0}">
         ${isLiked ? "💔 Unlike" : "❤️ Like"}
       </button>
     `;
@@ -134,6 +136,7 @@ function displayResults(movies) {
         title: e.target.dataset.title,
         poster: e.target.dataset.poster,
         date: e.target.dataset.date,
+        rating: parseFloat(e.target.dataset.rating),
       };
       await toggleLike(movie, e.target);
     });
@@ -141,8 +144,8 @@ function displayResults(movies) {
 }
 
 /* -----------------------------
-   Toggle Like / Unlike
------------------------------- */
+   Toggle Like / Unlike with rating
+----------------------------- */
 async function toggleLike(movie, button) {
   if (!userId || userId === "None") {
     alert("You must be logged in to like movies!");
@@ -167,6 +170,11 @@ async function toggleLike(movie, button) {
       button.classList.remove("liked");
       console.log(`💔 Unliked: ${movie.title}`);
     } else {
+      // Use TMDb vote_average as rating
+      const rating = movie.vote_average !== undefined 
+        ? parseFloat(movie.vote_average.toFixed(1)) 
+        : 0.0; // fallback if vote_average missing
+
       const { error } = await supabase
         .from("liked_movies")
         .insert([
@@ -176,6 +184,7 @@ async function toggleLike(movie, button) {
             title: movie.title,
             poster_path: movie.poster,
             release_date: movie.date,
+            rating: rating, // store TMDb rating
           },
         ]);
 
@@ -184,7 +193,7 @@ async function toggleLike(movie, button) {
       likedMoviesSet.add(movieId);
       button.textContent = "💔 Unlike";
       button.classList.add("liked");
-      console.log(`❤️ Liked: ${movie.title}`);
+      console.log(`❤️ Liked: ${movie.title} (Rating: ${rating})`);
     }
   } catch (err) {
     console.error("Error toggling like:", err);
