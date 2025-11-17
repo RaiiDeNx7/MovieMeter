@@ -37,6 +37,16 @@ if (searchBtn && searchInput && resultsDiv) {
 } else {
   console.error("❌ Missing DOM elements:", { searchBtn, searchInput, resultsDiv });
 }
+searchInput.addEventListener("keydown", function (event) {
+  if (event.key === "Enter") {
+    const query = searchInput.value.trim();
+    if (query) {
+      searchMovies(query);
+    } else {
+      resultsDiv.innerHTML = "<p>Please enter a movie name.</p>";
+    }
+  }
+});
 
 /* -----------------------------
    Load liked movies
