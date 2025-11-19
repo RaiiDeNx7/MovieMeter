@@ -36,7 +36,7 @@ if not likes:
 df = pd.DataFrame(likes)
 df["user_id"] = df["user_id"].astype(str)
 df["movie_id"] = df["movie_id"].astype(str)
-df["rating"] = 5.0  # arbitrary explicit rating for SVD
+df["rating"] = np.random.uniform(4.0, 5.0, size=len(df))
 
 print(f"Loaded {len(df)} likes.")
 
