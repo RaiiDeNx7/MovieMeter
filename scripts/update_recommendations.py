@@ -5,7 +5,6 @@ import requests
 from dotenv import load_dotenv
 from supabase import create_client
 from surprise import Dataset, Reader, SVD
-from surprise.model_selection import train_test_split
 
 # -----------------------------
 # Load environment variables
@@ -36,9 +35,11 @@ if not likes:
 df = pd.DataFrame(likes)
 df["user_id"] = df["user_id"].astype(str)
 df["movie_id"] = df["movie_id"].astype(str)
-df["rating"] = np.random.uniform(4.0, 5.0, size=len(df))
+df["rating"] = np.random.uniform(4.0, 5.0, size=len(df))  # Add slight variation
 
 print(f"Loaded {len(df)} likes.")
+
+user_ids = df["user_id"].unique()
 
 # -----------------------------
 # Build Surprise dataset
@@ -55,42 +56,89 @@ model.fit(trainset)
 print("SVD model trained ✓")
 
 # -----------------------------
-# Fetch new movies from TMDB
+# Fetch TMDB movies (popular + genre discover)
 # -----------------------------
-NUM_PAGES = 10
+NUM_PAGES = 50
 tmdb_movies = []
 
+# Popular movies
 for page in range(1, NUM_PAGES + 1):
-    TMDB_URL = f"https://api.themoviedb.org/3/movie/popular?api_key={TMDB_KEY}&language=en-US&page={page}"
-    response = requests.get(TMDB_URL)
-    data_tmdb = response.json()
-    tmdb_movies.extend(data_tmdb.get("results", []))
+    url = f"https://api.themoviedb.org/3/movie/popular?api_key={TMDB_KEY}&language=en-US&page={page}"
+    resp = requests.get(url).json()
+    tmdb_movies.extend(resp.get("results", []))
 
-tmdb_lookup = {str(m["id"]): m for m in tmdb_movies}
-tmdb_movie_ids = [str(m["id"]) for m in tmdb_movies]
-print(f"Fetched {len(tmdb_movies)} new TMDB movies ✓")
+# Discover superhero/action movies to expand candidate pool
+SUPERHERO_GENRES = [28, 12, 14]  # Action, Adventure, Fantasy
+for genre_id in SUPERHERO_GENRES:
+    for page in range(1, 6):
+        url = (
+            f"https://api.themoviedb.org/3/discover/movie?"
+            f"api_key={TMDB_KEY}&with_genres={genre_id}&language=en-US&page={page}"
+        )
+        resp = requests.get(url).json()
+        tmdb_movies.extend(resp.get("results", []))
+
+# Remove duplicates by movie ID
+tmdb_lookup = {}
+for m in tmdb_movies:
+    mid = str(m["id"])
+    if mid not in tmdb_lookup:
+        tmdb_lookup[mid] = {
+            "title": m.get("title"),
+            "poster_path": m.get("poster_path"),
+            "release_date": m.get("release_date"),
+            "tmdb_rating": m.get("vote_average"),
+            "genres": [g["name"] for g in m.get("genres", [])] if "genres" in m else [],
+            "popularity": m.get("popularity", 0)
+        }
+
+tmdb_movie_ids = list(tmdb_lookup.keys())
+print(f"Fetched {len(tmdb_movie_ids)} TMDB movies ✓")
 
 # -----------------------------
-# Generate top 20 recommendations per user
+# Build user liked genres map
+# -----------------------------
+user_liked_genres = {}
+for uid in user_ids:
+    liked_movies = df[df["user_id"] == uid]["movie_id"].tolist()
+    genres = set()
+    for mid in liked_movies:
+        m = tmdb_lookup.get(mid)
+        if m:
+            genres.update(m.get("genres", []))
+    user_liked_genres[uid] = genres
+
+# -----------------------------
+# Generate top 20 hybrid recommendations
 # -----------------------------
 recommendations = []
 
-user_ids = df["user_id"].unique()
-movie_ids_all = df["movie_id"].unique()
-
 for uid in user_ids:
-    # Predict scores for all TMDB movies
+    liked_genres = user_liked_genres.get(uid, set())
     scores = []
+    user_liked_movies = df[df["user_id"] == uid]["movie_id"].tolist()
+
     for m in tmdb_movie_ids:
-        # Skip if user already liked it
-        if m in df[df["user_id"] == uid]["movie_id"].tolist():
+        if m in user_liked_movies:
             continue
-        pred = model.predict(uid, m)
-        scores.append((m, pred.est))
-    
-    # Take top 20
+
+        # SVD prediction
+        score_ml = model.predict(uid, m).est
+
+        # TMDB normalized rating
+        score_tmdb = tmdb_lookup[m].get("tmdb_rating", 0) / 10  # scale 0..1
+
+        # Genre score
+        movie_genres = set(tmdb_lookup[m].get("genres", []))
+        common_genres = liked_genres & movie_genres
+        genre_score = len(common_genres) / len(liked_genres) if liked_genres else 0
+
+        # Hybrid score (SVD dominant)
+        hybrid_score = score_ml + genre_score * 2 + score_tmdb / 2
+        scores.append((m, hybrid_score))
+
     top20 = sorted(scores, key=lambda x: x[1], reverse=True)[:20]
-    
+
     for mid, score in top20:
         m = tmdb_lookup.get(mid, {})
         recommendations.append({
@@ -99,32 +147,35 @@ for uid in user_ids:
             "movie_title": m.get("title"),
             "poster_path": m.get("poster_path"),
             "release_date": m.get("release_date"),
-            "tmdb_rating": m.get("vote_average"),
+            "tmdb_rating": m.get("tmdb_rating"),
             "score": float(score)
         })
 
-print(f"Generated top 20 recommendations for each user ✓")
+print(f"Generated top 20 hybrid recommendations per user ✓")
 
 # -----------------------------
-# Upload to Supabase safely
+# Deduplicate
 # -----------------------------
-
-# Deduplicate by (user_id, movie_id)
 unique_recs = {}
 for r in recommendations:
     key = (r["user_id"], r["movie_id"])
     unique_recs[key] = r
-
 recommendations = list(unique_recs.values())
 print(f"After dedupe: {len(recommendations)} rows remain.")
 
-# Upload in batches
+# -----------------------------
+# Clear old recommendations
+# -----------------------------
+print("Clearing old recommendations...")
+for uid in user_ids:
+    supabase.table("movie_recommendations").delete().eq("user_id", uid).execute()
+
+# -----------------------------
+# Upload new recommendations
+# -----------------------------
 BATCH = 500
 for i in range(0, len(recommendations), BATCH):
     batch = recommendations[i:i + BATCH]
-    try:
-        supabase.table("movie_recommendations").upsert(batch).execute()
-    except Exception as e:
-        print(f"Error uploading batch {i//BATCH + 1}: {e}")
+    supabase.table("movie_recommendations").upsert(batch).execute()
 
-print("🎉 Top 20 SVD recommendations uploaded successfully!")
+print("🎉 Top 20 hybrid recommendations uploaded successfully!")
