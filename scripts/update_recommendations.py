@@ -1,106 +1,179 @@
 import os
 import pandas as pd
+import numpy as np
+import requests
 from dotenv import load_dotenv
 from supabase import create_client
-from surprise import Dataset, Reader, SVD
 
-# -----------------------------
+# -----------------------------------------------
 # Load environment variables
-# -----------------------------
+# -----------------------------------------------
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+TMDB_KEY = os.getenv("TMDB_API_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    raise ValueError("❌ Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env")
+    raise ValueError("Missing Supabase credentials in .env")
+
+if not TMDB_KEY:
+    raise ValueError("Missing TMDB_API_KEY in .env")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-print("Connected to Supabase successfully ✓")
+print("Connected to Supabase ✓")
+print("Fetching user liked movies...")
 
-# -----------------------------
-# Fetch liked movies from DB
-# -----------------------------
-print("Fetching user movie likes...")
-
+# -----------------------------------------------
+# Fetch liked movies
+# -----------------------------------------------
 response = supabase.table("liked_movies").select("*").execute()
-
 likes = response.data
 
 if not likes:
-    print("⚠️ No liked movies found. Nothing to train.")
+    print("⚠️ No likes found — cannot build recommendations.")
     exit()
 
 df = pd.DataFrame(likes)
 
-# Ensure strings for Surprise library
 df["user_id"] = df["user_id"].astype(str)
 df["movie_id"] = df["movie_id"].astype(str)
-
-# Assign default rating if not present
-if "rating" not in df.columns:
-    print("No 'rating' column found — assigning default rating of 5 for all liked movies.")
-    df["rating"] = 5.0
-else:
-    df["rating"] = df["rating"].astype(float)
+df["rating"] = 5.0   # default score
 
 print(f"Loaded {len(df)} likes.")
 
 
-# -----------------------------
-# Train SVD model
-# -----------------------------
-print("Training SVD model...")
+# -----------------------------------------------
+# Build user–movie matrix
+# -----------------------------------------------
+rating_matrix = df.pivot_table(
+    index="user_id",
+    columns="movie_id",
+    values="rating",
+    fill_value=0
+)
 
-reader = Reader(rating_scale=(1, 5))
-data = Dataset.load_from_df(df[["user_id", "movie_id", "rating"]], reader)
-trainset = data.build_full_trainset()
+user_ids = rating_matrix.index.tolist()
+matrix = rating_matrix.to_numpy()
 
-model = SVD()
-model.fit(trainset)
+# Normalize rows for cosine similarity
+norms = np.linalg.norm(matrix, axis=1)
+norms[norms == 0] = 1
+normalized = matrix / norms[:, None]
 
-print("Model trained ✓")
+# Cosine similarity matrix
+similarity = normalized @ normalized.T
 
-# -----------------------------
-# Generate recommendations
-# -----------------------------
-print("Generating recommendations...")
 
-all_movie_ids = df["movie_id"].unique()
-all_users = df["user_id"].unique()
+# -----------------------------------------------
+# Fetch NEW MOVIES from TMDB
+# -----------------------------------------------
+print("Fetching new movies from TMDB...")
 
+tmdb_movies = []
+NUM_PAGES = 10   # Fetch 10 pages = ~200 movies
+
+for page in range(1, NUM_PAGES + 1):
+    TMDB_URL = (
+        f"https://api.themoviedb.org/3/movie/popular"
+        f"?api_key={TMDB_KEY}&language=en-US&page={page}"
+    )
+    
+    tmdb_response = requests.get(TMDB_URL)
+    data = tmdb_response.json()
+    
+    results = data.get("results", [])
+    tmdb_movies.extend(results)
+
+print(f"Fetched {len(tmdb_movies)} fresh movies from TMDB.")
+
+
+# Build lookup for fast access
+tmdb_movie_ids = [str(m["id"]) for m in tmdb_movies]
+
+tmdb_lookup = {
+    str(m["id"]): {
+        "title": m.get("title", "Unknown"),
+        "poster_path": m.get("poster_path"),
+        "release_date": m.get("release_date"),
+        "tmdb_rating": m.get("vote_average"),
+    }
+    for m in tmdb_movies
+}
+
+
+# -----------------------------------------------
+# Score and recommend TMDB movies
+# -----------------------------------------------
 recommendations = []
 
-for user in all_users:
-    user_likes = df[df["user_id"] == user]["movie_id"].tolist()
+for i, user in enumerate(user_ids):
+    user_likes = set(df[df["user_id"] == user]["movie_id"].tolist())
 
-    for movie in all_movie_ids:
-        if movie not in user_likes:  # avoid recommending already-liked movies
-            score = model.predict(user, movie).est
-            recommendations.append({
-                "user_id": user,
-                "movie_id": movie,
-                "score": float(score),
-            })
+    weighted_scores = similarity[i] @ matrix
 
-print(f"Generated {len(recommendations)} predictions.")
+    for tmdb_mid in tmdb_movie_ids:
+        if tmdb_mid in user_likes:
+            continue
 
-# -----------------------------
-# Clear old recommendations
-# -----------------------------
+        # Compute similarity score
+        try:
+            movie_index = rating_matrix.columns.get_loc(tmdb_mid)
+            score = float(weighted_scores[movie_index])
+        except KeyError:
+            score = float(np.mean(weighted_scores))  # fallback
+
+        movie_info = tmdb_lookup.get(tmdb_mid, {})
+
+        recommendations.append({
+            "user_id": user,
+            "movie_id": tmdb_mid,
+            "movie_title": movie_info.get("title"),
+            "poster_path": movie_info.get("poster_path"),
+            "release_date": movie_info.get("release_date"),
+            "tmdb_rating": movie_info.get("tmdb_rating"),
+            "score": score
+        })
+
+print(f"Generated {len(recommendations)} recommendations.")
+
+
+# -----------------------------------------------
+# Upload to Supabase
+# -----------------------------------------------
 print("Clearing old recommendations...")
+for user in user_ids:
+    supabase.table("movie_recommendations") \
+        .delete() \
+        .eq("user_id", user) \
+        .execute()
 
-supabase.table("movie_recommendations").delete().neq("user_id", "NULL").execute()
+# -----------------------------------------------
+# Deduplicate before upload
+# -----------------------------------------------
+print("Removing duplicates...")
 
-# -----------------------------
-# Insert new recommendations
-# -----------------------------
-print("Uploading new recommendations... This may take a few seconds...")
+unique_recs = {}
+for r in recommendations:
+    key = (r["user_id"], r["movie_id"])
+    unique_recs[key] = r
+
+recommendations = list(unique_recs.values())
+print(f"After dedupe: {len(recommendations)} rows remain.")
+
+# -----------------------------------------------
+# Upload to Supabase in batches
+# -----------------------------------------------
+print("Uploading new recommendations...")
 
 BATCH = 500
 for i in range(0, len(recommendations), BATCH):
-    chunk = recommendations[i:i+BATCH]
-    supabase.table("movie_recommendations").insert(chunk).execute()
+    batch = recommendations[i:i + BATCH]
+
+    supabase.table("movie_recommendations") \
+        .upsert(batch) \
+        .execute()
 
 print("🎉 Recommendations updated successfully!")
+

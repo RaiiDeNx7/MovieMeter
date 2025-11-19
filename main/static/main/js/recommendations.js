@@ -2,7 +2,6 @@ import { supabase } from "./supabase.js";
 
 console.log("✅ recommendations.js loaded");
 
-// Get user_id from HTML data attribute
 const recommendationsDiv = document.getElementById("recommendations");
 const userId = recommendationsDiv.dataset.userId;
 
@@ -10,68 +9,55 @@ const TMDB_KEY = "f8b7534aef60f21d1301d08c91637752"; // replace with your key
 
 async function loadRecommendations() {
   if (!userId || userId === "None") {
-    recommendationsDiv.innerHTML = "<p style='color:red;'>User not found.</p>";
+    recommendationsDiv.innerHTML =
+      "<p style='color:red;'>User not found.</p>";
     return;
   }
 
   recommendationsDiv.innerHTML = "<p>Loading recommendations...</p>";
 
   try {
-    // 1️⃣ Get liked movies from Supabase
-    const { data: likedMovies, error } = await supabase
-      .from("liked_movies")
-      .select("movie_id")
-      .eq("user_id", userId);
+    // 1️⃣ Fetch personalized recommendations from Supabase
+    const { data: recs, error } = await supabase
+      .from("movie_recommendations")
+      .select("movie_id, score")
+      .eq("user_id", userId)
+      .order("score", { ascending: false })
+      .limit(20);
 
     if (error) throw error;
 
-    if (!likedMovies || likedMovies.length === 0) {
-      recommendationsDiv.innerHTML = "<p>No recommendations yet. Like some movies first!</p>";
+    if (!recs || recs.length === 0) {
+      recommendationsDiv.innerHTML =
+        "<p>No recommendations yet. Run the script to generate some!</p>";
       return;
     }
 
-    const likedIds = likedMovies.map((m) => m.movie_id);
-
-    console.log("Liked movie IDs:", likedIds);
-
-    // 2️⃣ Fetch similar movies from TMDb for top 5 liked movies
-    let similarMovies = [];
-    for (const movieId of likedIds.slice(0, 5)) {
+    // 2️⃣ Fetch full movie details from TMDB
+    const tmdbMovies = [];
+    for (const r of recs) {
       try {
         const res = await fetch(
-          `https://api.themoviedb.org/3/movie/${movieId}/similar?api_key=${TMDB_KEY}`
+          `https://api.themoviedb.org/3/movie/${r.movie_id}?api_key=${TMDB_KEY}`
         );
-        const data = await res.json();
-        similarMovies = similarMovies.concat(data.results || []);
+        const movieData = await res.json();
+        movieData.rec_score = r.score; // include score for reference
+        tmdbMovies.push(movieData);
       } catch (err) {
-        console.error("Error fetching similar movies:", err);
+        console.error("TMDB fetch error for movie", r.movie_id, err);
       }
     }
 
-    // 3️⃣ Remove duplicates and already liked movies
-    const uniqueMovies = {};
-    similarMovies.forEach((m) => {
-      if (!likedIds.includes(m.id)) {
-        uniqueMovies[m.id] = m;
-      }
-    });
-
-    const recommendations = Object.values(uniqueMovies);
-
-    if (recommendations.length === 0) {
-      recommendationsDiv.innerHTML = "<p>No recommendations available based on your liked movies.</p>";
-      return;
-    }
-
-    // 4️⃣ Display recommendations
+    // 3️⃣ Display movies
     recommendationsDiv.innerHTML = "";
-    recommendations.forEach((movie) => {
+    tmdbMovies.forEach((movie) => {
       const poster = movie.poster_path
         ? `https://image.tmdb.org/t/p/w200${movie.poster_path}`
         : "https://via.placeholder.com/200x300?text=No+Image";
 
       const div = document.createElement("div");
       div.classList.add("movie");
+
       div.innerHTML = `
         <img src="${poster}" alt="${movie.title}">
         <h3>${movie.title}</h3>
@@ -82,9 +68,9 @@ async function loadRecommendations() {
     });
   } catch (err) {
     console.error("Error loading recommendations:", err);
-    recommendationsDiv.innerHTML = "<p style='color:red;'>Error loading recommendations.</p>";
+    recommendationsDiv.innerHTML =
+      "<p style='color:red;'>Error loading recommendations.</p>";
   }
 }
 
-// Load recommendations when page loads
 loadRecommendations();

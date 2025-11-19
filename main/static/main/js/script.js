@@ -23,20 +23,30 @@ window.addEventListener("DOMContentLoaded", async () => {
 });
 
 /* -----------------------------
-   Event: Search button
+Event: Search button
 ------------------------------ */
 if (searchBtn && searchInput && resultsDiv) {
-  searchBtn.addEventListener("click", () => {
-    const query = searchInput.value.trim();
-    if (query) {
-      searchMovies(query);
-    } else {
-      resultsDiv.innerHTML = "<p>Please enter a movie name.</p>";
-    }
-  });
+searchBtn.addEventListener("click", () => {
+const query = searchInput.value.trim();
+if (query) {
+searchMovies(query);
 } else {
-  console.error("❌ Missing DOM elements:", { searchBtn, searchInput, resultsDiv });
+resultsDiv.innerHTML = "<p>Please enter a movie name.</p>";
 }
+});
+} else {
+console.error("❌ Missing DOM elements:", { searchBtn, searchInput, resultsDiv });
+}
+searchInput.addEventListener("keydown", function (event) {
+if (event.key === "Enter") {
+const query = searchInput.value.trim();
+if (query) {
+searchMovies(query);
+} else {
+resultsDiv.innerHTML = "<p>Please enter a movie name.</p>";
+}
+}
+});
 
 /* -----------------------------
    Load liked movies
@@ -57,6 +67,7 @@ async function loadLikedMovies() {
   }
 }
 
+
 /* -----------------------------
    Load default movies
 ------------------------------ */
@@ -74,6 +85,7 @@ async function loadDefaultMovies() {
   }
 }
 
+
 /* -----------------------------
    Search movies
 ------------------------------ */
@@ -90,6 +102,7 @@ async function searchMovies(query) {
     resultsDiv.innerHTML = `<p style="color:red;">Error loading results.</p>`;
   }
 }
+
 
 /* -----------------------------
    Display movies
@@ -110,19 +123,24 @@ function displayResults(movies) {
     const movieId = String(movie.id);
     const isLiked = likedMoviesSet.has(movieId);
 
+    // Always use ???? NOT ||
+    const rating = movie.vote_average ?? 0;
+    console.log("TMDB RAW:", movie.vote_average, "FINAL RATING:", rating);
+
     const movieDiv = document.createElement("div");
     movieDiv.classList.add("movie");
     movieDiv.innerHTML = `
       <img src="${poster}" alt="${movie.title}">
       <h3>${movie.title}</h3>
       <p>Release: ${movie.release_date || "N/A"}</p>
-      <p>⭐ ${movie.vote_average ? movie.vote_average.toFixed(1) : "N/A"}</p>
+      <p>⭐ ${rating.toFixed(1)}</p>
+
       <button class="like-btn ${isLiked ? "liked" : ""}"
         data-id="${movieId}"
         data-title="${movie.title}"
         data-poster="${poster}"
         data-date="${movie.release_date}"
-        data-rating="${movie.vote_average || 0}">
+        data-rating="${rating}">
         ${isLiked ? "💔 Unlike" : "❤️ Like"}
       </button>
     `;
@@ -131,22 +149,29 @@ function displayResults(movies) {
 
   document.querySelectorAll(".like-btn").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
+      const button = e.currentTarget;   // ALWAYS the button element
+
       const movie = {
-        id: e.target.dataset.id,
-        title: e.target.dataset.title,
-        poster: e.target.dataset.poster,
-        date: e.target.dataset.date,
-        rating: parseFloat(e.target.dataset.rating),
+        id: button.dataset.id,
+        title: button.dataset.title,
+        poster: button.dataset.poster,
+        date: button.dataset.date,
+        rating: Number(button.dataset.rating), // CORRECT NOW
       };
-      await toggleLike(movie, e.target);
+
+
+      console.log("⭐ CLICKED MOVIE RATING:", movie.rating);
+      await toggleLike(movie, button);
     });
   });
 }
 
+
 /* -----------------------------
-   Toggle Like / Unlike with rating
------------------------------ */
+   Toggle Like / Unlike
+------------------------------ */
 async function toggleLike(movie, button) {
+
   if (!userId || userId === "None") {
     alert("You must be logged in to like movies!");
     return;
@@ -169,11 +194,11 @@ async function toggleLike(movie, button) {
       button.textContent = "❤️ Like";
       button.classList.remove("liked");
       console.log(`💔 Unliked: ${movie.title}`);
+
     } else {
-      // Use TMDb vote_average as rating
-      const rating = movie.vote_average !== undefined 
-        ? parseFloat(movie.vote_average.toFixed(1)) 
-        : 0.0; // fallback if vote_average missing
+      const rating = Number(movie.rating); // GUARANTEED numeric
+
+      console.log("📤 INSERTING RATING TO SUPABASE:", rating);
 
       const { error } = await supabase
         .from("liked_movies")
@@ -184,7 +209,7 @@ async function toggleLike(movie, button) {
             title: movie.title,
             poster_path: movie.poster,
             release_date: movie.date,
-            rating: rating, // store TMDb rating
+            rating: rating, // CORRECT numeric rating
           },
         ]);
 
@@ -193,10 +218,18 @@ async function toggleLike(movie, button) {
       likedMoviesSet.add(movieId);
       button.textContent = "💔 Unlike";
       button.classList.add("liked");
-      console.log(`❤️ Liked: ${movie.title} (Rating: ${rating})`);
+      console.log("❤️ Liked Movie Debug →", {
+          title: movie.title,
+          userRating: rating,
+          typeofRating: typeof rating,
+          rawMovieObject: movie
+      });
+
+
     }
+
   } catch (err) {
     console.error("Error toggling like:", err);
-    alert("Error updating like status. Check console for details.");
+    alert("Error updating like status.");
   }
 }

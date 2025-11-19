@@ -18,7 +18,7 @@
 
 2. Install dependencies
 pip install django django-environ psycopg2-binary python-dotenv
-py -m pip install supabase
+py -m pip install supabase requests
 py -m manage makemigrations
 py -m manage migrate
 
