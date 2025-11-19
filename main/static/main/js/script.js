@@ -141,12 +141,16 @@ function displayResults(movies) {
 
   document.querySelectorAll(".like-btn").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
+      const ratingValue = e.target.dataset.rating;
+      const parsedRating = ratingValue ? parseFloat(ratingValue) : 0.0;
+      console.log(" Debug - Rating from dataset:", ratingValue, "Parsed:", parsedRating);
+      
       const movie = {
         id: e.target.dataset.id,
         title: e.target.dataset.title,
         poster: e.target.dataset.poster,
         date: e.target.dataset.date,
-        rating: parseFloat(e.target.dataset.rating),
+        rating: parsedRating,
       };
       await toggleLike(movie, e.target);
     });
@@ -181,24 +185,36 @@ async function toggleLike(movie, button) {
       console.log(`💔 Unliked: ${movie.title}`);
     } else {
       // Use TMDb vote_average as rating
-      const rating = movie.vote_average !== undefined 
-        ? parseFloat(movie.vote_average.toFixed(1)) 
-        : 0.0; // fallback if vote_average missing
+      let rating = 0.0;
+      if (movie.rating !== undefined && movie.rating !== null && !isNaN(movie.rating)) {
+        rating = parseFloat(Number(movie.rating).toFixed(1));
+      }
+      
+      console.log("Debug - Final rating value being inserted:", rating, "Movie:", movie.title);
+      console.log("Debug - Full movie object:", movie);
 
-      const { error } = await supabase
+      const insertData = {
+        user_id: String(userId),
+        movie_id: String(movie.id), // Ensure consistent string type
+        title: movie.title,
+        poster_path: movie.poster,
+        release_date: movie.date,
+        rating: rating, // store TMDb rating
+      };
+      
+      console.log("Debug - Data being inserted to Supabase:", insertData);
+
+      const { data, error } = await supabase
         .from("liked_movies")
-        .insert([
-          {
-            user_id: userId,
-            movie_id: movie.id,
-            title: movie.title,
-            poster_path: movie.poster,
-            release_date: movie.date,
-            rating: rating, // store TMDb rating
-          },
-        ]);
+        .insert([insertData])
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("❌ Supabase insert error:", error);
+        throw error;
+      }
+      
+      console.log("✅ Supabase insert success:", data);
 
       likedMoviesSet.add(movieId);
       button.textContent = "💔 Unlike";
