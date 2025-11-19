@@ -23,30 +23,31 @@ window.addEventListener("DOMContentLoaded", async () => {
 });
 
 /* -----------------------------
-Event: Search button
+   Event: Search button
 ------------------------------ */
 if (searchBtn && searchInput && resultsDiv) {
-searchBtn.addEventListener("click", () => {
-const query = searchInput.value.trim();
-if (query) {
-searchMovies(query);
+  searchBtn.addEventListener("click", () => {
+    const query = searchInput.value.trim();
+    if (query) {
+      searchMovies(query);
+    } else {
+      resultsDiv.innerHTML = "<p>Please enter a movie name.</p>";
+    }
+  });
 } else {
-resultsDiv.innerHTML = "<p>Please enter a movie name.</p>";
-}
-});
-} else {
-console.error("❌ Missing DOM elements:", { searchBtn, searchInput, resultsDiv });
+  console.error("❌ Missing DOM elements:", { searchBtn, searchInput, resultsDiv });
 }
 searchInput.addEventListener("keydown", function (event) {
-if (event.key === "Enter") {
-const query = searchInput.value.trim();
-if (query) {
-searchMovies(query);
-} else {
-resultsDiv.innerHTML = "<p>Please enter a movie name.</p>";
-}
-}
+  if (event.key === "Enter") {
+    const query = searchInput.value.trim();
+    if (query) {
+      searchMovies(query);
+    } else {
+      resultsDiv.innerHTML = "<p>Please enter a movie name.</p>";
+    }
+  }
 });
+
 
 /* -----------------------------
    Load liked movies
