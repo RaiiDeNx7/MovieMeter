@@ -6,22 +6,34 @@
   <link rel="stylesheet" href="{% static 'main/css/style.css' %}">
 </head>
 <body>
-<div class="card">
-  <h2>Sign Up</h2>
-  <form method="POST">
-  {% csrf_token %}
-  <input type="text" name="first_name" placeholder="First Name" required><br>
-  <input type="text" name="last_name" placeholder="Last Name" required><br>
-  <input type="email" name="email" placeholder="Email" required><br>
-  <input type="password" name="password" placeholder="Password" required><br>
-  <input type="password" name="confirm" placeholder="Confirm Password" required><br>
-  <button type="submit">Sign Up</button>
-  </form>
 
-  {% for message in messages %}
-    <p style="color:red;">{{ message }}</p>
-  {% endfor %}
-  <p>Already have an account? <a href="{% url 'login' %}">Login</a></p>
+<div id="topbar">
+  <a href="{% url 'index' %}">Home</a>
 </div>
+
+<div class="page-container">
+  <div class="card">
+    <h2>Create Account</h2>
+
+    <form method="POST">
+      {% csrf_token %}
+      <input type="text" name="first_name" placeholder="First Name" required>
+      <input type="text" name="last_name" placeholder="Last Name" required>
+      <input type="email" name="email" placeholder="Email" required>
+      <input type="password" name="password" placeholder="Password" required>
+      <input type="password" name="confirm" placeholder="Confirm Password" required>
+      <button type="submit">Sign Up</button>
+    </form>
+
+    {% for message in messages %}
+      <p style="color:red;">{{ message }}</p>
+    {% endfor %}
+
+    <p>Already have an account?
+      <a href="{% url 'login' %}">Login</a>
+    </p>
+  </div>
+</div>
+
 </body>
 </html>

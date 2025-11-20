@@ -25,3 +25,12 @@ py -m manage migrate
 1. Run Server
 python manage.py runserver 
 py -m manage runserver
+
+
+# Running SVD Model
+
+1. Navigate to root
+
+2. INstall Dependencies
+
+3. run python scripts/update_recommendations.py
