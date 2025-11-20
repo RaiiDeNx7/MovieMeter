@@ -5,6 +5,8 @@ import requests
 from dotenv import load_dotenv
 from supabase import create_client
 from surprise import Dataset, Reader, SVD
+import time
+start_time = time.time()
 
 # -----------------------------
 # Load environment variables
@@ -108,10 +110,13 @@ for uid in user_ids:
             genres.update(m.get("genres", []))
     user_liked_genres[uid] = genres
 
+
 # -----------------------------
-# Generate top 20 hybrid recommendations
+# Generate top 40 hybrid recommendations
 # -----------------------------
 recommendations = []
+
+TOP_N = 40  # change from 20 to 40
 
 for uid in user_ids:
     liked_genres = user_liked_genres.get(uid, set())
@@ -122,24 +127,25 @@ for uid in user_ids:
         if m in user_liked_movies:
             continue
 
-        # SVD prediction
+        # SVD score
         score_ml = model.predict(uid, m).est
 
         # TMDB normalized rating
-        score_tmdb = tmdb_lookup[m].get("tmdb_rating", 0) / 10  # scale 0..1
+        score_tmdb = tmdb_lookup[m].get("tmdb_rating", 0) / 10
 
         # Genre score
         movie_genres = set(tmdb_lookup[m].get("genres", []))
         common_genres = liked_genres & movie_genres
         genre_score = len(common_genres) / len(liked_genres) if liked_genres else 0
 
-        # Hybrid score (SVD dominant)
+        # Hybrid score
         hybrid_score = score_ml + genre_score * 2 + score_tmdb / 2
+
         scores.append((m, hybrid_score))
 
-    top20 = sorted(scores, key=lambda x: x[1], reverse=True)[:20]
+    top40 = sorted(scores, key=lambda x: x[1], reverse=True)[:TOP_N]
 
-    for mid, score in top20:
+    for mid, score in top40:
         m = tmdb_lookup.get(mid, {})
         recommendations.append({
             "user_id": uid,
@@ -151,7 +157,8 @@ for uid in user_ids:
             "score": float(score)
         })
 
-print(f"Generated top 20 hybrid recommendations per user ✓")
+
+print(f"Generated top 40 hybrid recommendations per user ✓")
 
 # -----------------------------
 # Deduplicate
@@ -178,4 +185,16 @@ for i in range(0, len(recommendations), BATCH):
     batch = recommendations[i:i + BATCH]
     supabase.table("movie_recommendations").upsert(batch).execute()
 
-print("🎉 Top 20 hybrid recommendations uploaded successfully!")
+print("🎉 Top 40 hybrid recommendations uploaded successfully!")
+
+# -----------------------------
+# Time
+# -----------------------------
+
+end_time = time.time()
+total_seconds = end_time - start_time
+
+minutes = total_seconds // 60
+seconds = int(total_seconds % 60)
+
+print(f"\n⏱️ Total runtime: {int(minutes)} min {seconds} sec")
